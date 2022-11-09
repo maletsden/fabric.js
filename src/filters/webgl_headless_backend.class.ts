@@ -158,20 +158,22 @@ const headless_gl = require('gl');
 
       /**
        * Converts HTML image to Uint8Array.
-       * 
+       *
        * @param {HTMLImageElement} image A HTML image.
        * @param {CanvasRenderingContext2D} context Rendering context.
-       * 
+       *
        * @returns {Uint8Array} Image buffer.
        */
-      imageToUint8Array: function(image, context) {
-        context.width = image.width;
-        context.height = image.height;
+      imageToUint8Array: function (image, context) {
+        const canvas = fabric.util.createCanvasElement();
+        canvas.width = image.width;
+        canvas.height = image.height;
+        context = canvas.getContext('2d');
+
         context.drawImage(image, 0, 0);
-        // `getImageData().data` is a `Uint8ClampedArray`, which differs from `Uint8Array` only in
-        // how data is treated when values are being *set*, so it is valid to perform the conversion
-        // into a `Uint8Array`.
-        return new Uint8Array(context.getImageData(0, 0, image.width, image.height).data.buffer);
+        var buffer = context.getImageData(0, 0, image.width, image.height);
+
+        return new Uint8Array(buffer.data.buffer);
       },
 
       /**
@@ -193,7 +195,12 @@ const headless_gl = require('gl');
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
-        var textureImageData = textureImageSource ? this.imageToUint8Array(textureImageSource, this._conversionCanvasEl.getContext('2d')) : null;
+        var textureImageData = textureImageSource
+          ? this.imageToUint8Array(
+              textureImageSource,
+              this._conversionCanvasEl.getContext('2d')
+            )
+          : null;
 
         gl.texImage2D(
           gl.TEXTURE_2D,

@@ -18037,15 +18037,31 @@ class WebGLProbe {
      * @returns config object if true
      */
     queryWebGL() {
-        if (this.initialized || fabric$1.isLikelyNode) {
+        if (this.initialized) {
             return;
         }
-        const canvas = createCanvasElement();
-        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+        let gl;
+        if (fabric$1.isLikelyNode) {
+            const width = 4;
+            const height = 4;
+            gl = require('gl')(width, height);
+            if (!gl) {
+                return;
+            }
+        }
+        else {
+            const canvas = createCanvasElement();
+            gl =
+                canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+        }
         if (gl) {
             this._maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
             this._webGLPrecision = WebGLPrecision.find((key) => this.testPrecision(gl, key));
             console.log(`fabric: max texture size ${this._maxTextureSize}`);
+        }
+        if (fabric$1.isLikelyNode) {
+            const ext = gl.getExtension('STACKGL_destroy_context');
+            ext.destroy();
         }
         this.initialized = true;
     }
@@ -18053,14 +18069,14 @@ class WebGLProbe {
         return this.maxTextureSize && this.maxTextureSize >= textureSize;
     }
 }
-const webGLProbe$1 = new WebGLProbe();
+const webGLProbe = new WebGLProbe();
 
 //@ts-nocheck
 (function (global) {
     var fabric = global.fabric;
     fabric.initFilterBackend = function () {
         if (config.enableGLFiltering &&
-            webGLProbe$1.isSupported(config.textureSize)) {
+            webGLProbe.isSupported(config.textureSize)) {
             return new fabric.WebglFilterBackend({ tileSize: config.textureSize });
         }
         else if (fabric.Canvas2dFilterBackend) {
@@ -18385,15 +18401,6 @@ function copyGLTo2DPutImageData$1(gl, pipelineState) {
 const headless_gl = require('gl');
 (function (global) {
     var fabric = global.fabric;
-    fabric.initFilterBackend = function () {
-        if (config.enableGLFiltering &&
-            webGLProbe.isSupported(config.textureSize)) {
-            return new fabric.WebglHeadlessFilterBackend({ tileSize: config.textureSize });
-        }
-        else if (fabric.Canvas2dFilterBackend) {
-            return new fabric.Canvas2dFilterBackend();
-        }
-    };
     fabric.WebglHeadlessFilterBackend = WebglHeadlessFilterBackend;
     /**
      * WebGL filter backend.
@@ -18528,13 +18535,13 @@ const headless_gl = require('gl');
              * @returns {Uint8Array} Image buffer.
              */
             imageToUint8Array: function (image, context) {
-                context.width = image.width;
-                context.height = image.height;
+                const canvas = fabric.util.createCanvasElement();
+                canvas.width = image.width;
+                canvas.height = image.height;
+                context = canvas.getContext('2d');
                 context.drawImage(image, 0, 0);
-                // `getImageData().data` is a `Uint8ClampedArray`, which differs from `Uint8Array` only in
-                // how data is treated when values are being *set*, so it is valid to perform the conversion
-                // into a `Uint8Array`.
-                return new Uint8Array(context.getImageData(0, 0, image.width, image.height).data.buffer);
+                var buffer = context.getImageData(0, 0, image.width, image.height);
+                return new Uint8Array(buffer.data.buffer);
             },
             /**
              * Create a WebGL texture object.
@@ -18554,7 +18561,9 @@ const headless_gl = require('gl');
                 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
                 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
                 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-                var textureImageData = textureImageSource ? this.imageToUint8Array(textureImageSource, this._conversionCanvasEl.getContext('2d')) : null;
+                var textureImageData = textureImageSource
+                    ? this.imageToUint8Array(textureImageSource, this._conversionCanvasEl.getContext('2d'))
+                    : null;
                 gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, textureImageData);
                 return texture;
             },
@@ -18774,8 +18783,8 @@ function copyGLTo2DPutImageData(gl, pipelineState) {
         createProgram: function (gl, fragmentSource, vertexSource) {
             fragmentSource = fragmentSource || this.fragmentSource;
             vertexSource = vertexSource || this.vertexSource;
-            if (webGLProbe$1.webGLPrecision !== "highp" /* TWebGLPrecision.high */) {
-                fragmentSource = fragmentSource.replace(new RegExp(`precision ${"highp" /* TWebGLPrecision.high */} float`, 'g'), `precision ${webGLProbe$1.webGLPrecision} float`);
+            if (webGLProbe.webGLPrecision !== "highp" /* TWebGLPrecision.high */) {
+                fragmentSource = fragmentSource.replace(new RegExp(`precision ${"highp" /* TWebGLPrecision.high */} float`, 'g'), `precision ${webGLProbe.webGLPrecision} float`);
             }
             var vertexShader = gl.createShader(gl.VERTEX_SHADER);
             gl.shaderSource(vertexShader, vertexSource);
