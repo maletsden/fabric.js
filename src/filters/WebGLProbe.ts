@@ -58,19 +58,40 @@ class WebGLProbe {
    * @returns config object if true
    */
   private queryWebGL() {
-    if (this.initialized || fabric.isLikelyNode) {
+    if (this.initialized) {
       return;
     }
-    const canvas = createCanvasElement();
-    const gl =
-      canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+
+    let gl;
+    
+    if (fabric.isLikelyNode) {
+      const width = 4;
+      const height = 4;
+      gl = require('gl')(width, height);
+
+      if (!gl) {
+        return;
+      }
+    } else {
+      const canvas = createCanvasElement();
+      gl =
+        canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+    }
+
     if (gl) {
       this._maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
       this._webGLPrecision = WebGLPrecision.find((key) =>
         this.testPrecision(gl, key)
       );
+
       console.log(`fabric: max texture size ${this._maxTextureSize}`);
     }
+
+    if (fabric.isLikelyNode) {
+      const ext = gl.getExtension('STACKGL_destroy_context');
+      ext.destroy();
+    }
+
     this.initialized = true;
   }
 
